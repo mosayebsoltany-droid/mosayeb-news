@@ -2,5 +2,8 @@
   "name": "mosayeb-news",
   "main": "src/index.js",
   "compatibility_date": "2026-10-01",
-  "workers_dev": true
+  "workers_dev": true,
+  "vars": {
+    "SUPABASE_URL": "https://piqfyjomcmifsmlkbrkd.supabase.co"
+  }
 }
