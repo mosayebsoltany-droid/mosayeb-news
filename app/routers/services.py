@@ -7,6 +7,7 @@ from sqlalchemy import select
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from app.auth import Database, get_current_user, log_action
+from app.certificates import certificate_pdf
 from app.models import DocumentRequest, User
 from app.routers.mock_registry import mock_registry
 from app.schemas import ClaimCreate, RequestResponse
@@ -86,3 +87,21 @@ def track_status(tracking_code: str, db: Database, user: CurrentUser):
     if record is None:
         raise HTTPException(404, "پرونده‌ای با این کد رهگیری یافت نشد.")
     return output(record)
+
+
+@router.get("/claims/{tracking_code}/certificate.pdf", response_class=Response,
+            responses={200: {"content": {"application/pdf": {}}}})
+def download_claim_certificate(tracking_code: str, db: Database, user: CurrentUser):
+    claim = db.scalar(select(DocumentRequest).where(
+        DocumentRequest.tracking_code == tracking_code,
+        DocumentRequest.user_id == user.id,
+        DocumentRequest.request_type == "claim",
+    ))
+    if claim is None:
+        raise HTTPException(404, "ادعایی با این کد رهگیری یافت نشد.")
+    if claim.status != "success":
+        raise HTTPException(409, "گواهی فقط برای ادعای موفق قابل دریافت است.")
+    pdf = certificate_pdf(claim.tracking_code, "SIMULATION")
+    log_action(db, user.id, "DOWNLOAD_CERTIFICATE", claim.tracking_code)
+    db.commit()
+    return pdf

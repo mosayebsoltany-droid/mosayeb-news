@@ -1,11 +1,12 @@
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import ForeignKey, String, select, update
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
+from app.certificates import certificate_pdf
 from app.database import Base, get_db
 
 Service = Literal["claim", "map", "certificate"]
@@ -110,3 +111,12 @@ def submit_request(code: UUID, db: Database) -> RequestOutput:
     db.commit()
     db.refresh(record)
     return response(db, record)
+
+
+@router.get("/{code}/certificate.pdf", response_class=Response,
+            responses={200: {"content": {"application/pdf": {}}}})
+def download_demo_certificate(code: UUID, db: Database):
+    record = lookup(db, code)
+    if record.service != "certificate" or record.status != "completed" or not record.result:
+        raise HTTPException(409, "A completed demo certificate is required")
+    return certificate_pdf(record.reference, record.result)
