@@ -2,12 +2,35 @@
 <html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>میز کار کارگزاری ثبت</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#edf4f1;color:#17352f;font:16px/1.8 system-ui,Tahoma,sans-serif}header,main{max-width:920px;margin:auto;padding:0 20px}header{display:flex;justify-content:space-between;align-items:center;min-height:74px;gap:12px;font-weight:700}.tag{background:#d9eae3;padding:4px 12px;border-radius:30px;font-size:.85rem}.hero{background:#103f3a;color:white;padding:clamp(25px,6vw,54px);border-radius:22px;border-inline-start:6px solid #81cba6}.hero small{color:#bce6d2}h1{font-size:clamp(1.85rem,5vw,3.1rem);line-height:1.35;margin:.25em 0}.hero p{color:#d8eee5;margin-bottom:0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:18px 0}.card{padding:22px;border:1px solid #d5e5de;border-radius:16px;background:white}h2{font-size:1.2rem;margin:0}.card p,footer{color:#455f58}button,a{display:inline-block;background:#086354;color:white;border:0;border-radius:9px;padding:8px 14px;text-decoration:none;font:inherit;font-weight:700;cursor:pointer}button:disabled{opacity:.7}:focus-visible{outline:3px solid #ad570c;outline-offset:3px}#status{font-weight:700}footer{font-size:.9rem;padding-bottom:24px}@media(max-width:620px){.grid{grid-template-columns:1fr}}
+form{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:14px 0}input,select{font:inherit;padding:6px;border:1px solid #78968b;border-radius:6px;max-width:100%}#request-status{white-space:pre-line;overflow-wrap:anywhere}
 </style></head>
 <body><header><span>کارگزاری فنی و مهندسی ثبت</span><span class="tag">نسخهٔ آزمایشی</span></header>
 <main><section class="hero"><small>محیط شبیه‌سازی</small><h1>میز کار کارگزاری ثبت</h1><p>وضعیت سرویس و پایگاه داده را بررسی کنید و مستندات فنی سامانه را ببینید.</p></section>
 <div class="grid"><section class="card"><h2>وضعیت سامانه</h2><p id="status" role="status">در انتظار بررسی</p><button id="check" type="button">بررسی دوباره</button></section>
 <section class="card"><h2>مستندات فنی</h2><p>مسیرهای موجود API را در Swagger آزمایش کنید.</p><a href="/docs">باز کردن مستندات API</a></section></div>
-<footer>ثبت درخواست، ورود کاربران و اتصال به سامانهٔ رسمی ثبت در این نسخه فعال نیستند.</footer></main>
+<section class="card" aria-labelledby="services-title">
+<h2 id="services-title">خدمات آزمایشی</h2>
+<p>فقط از شناسهٔ ساختگی مانند <bdi>DEMO-101</bdi> استفاده کنید. برای گواهی، کد پیگیری یک ادعای تکمیل‌شدهٔ آزمایشی را وارد کنید.</p>
+<form id="new-request">
+<label for="service">نوع خدمت</label>
+<select id="service" name="service">
+<option value="claim">ثبت ادعا</option>
+<option value="map">درخواست تهیهٔ نقشه</option>
+<option value="certificate">درج گواهی اقدام ادعا</option>
+</select>
+<label for="reference">شناسهٔ ملک یا کد ادعا</label>
+<input id="reference" name="reference" value="DEMO-101" dir="ltr" maxlength="36" required>
+<button type="submit">ثبت پیش‌نویس</button>
+</form>
+<form id="tracking">
+<label for="code">کد پیگیری</label>
+<input id="code" name="code" dir="ltr" maxlength="36" required>
+<button type="submit">پیگیری</button>
+<button id="send" type="button" disabled>ارسال آزمایشی</button>
+</form>
+<p id="request-status" role="status"></p>
+</section>
+<footer>خدمات در محیط شبیه‌سازی اجرا می‌شوند. از وارد کردن اطلاعات واقعی خودداری کنید.</footer></main>
 <script>
 const button = document.getElementById('check');
 const status = document.getElementById('status');
@@ -26,4 +49,57 @@ async function checkHealth() {
 }
 button.addEventListener('click', checkHealth);
 checkHealth();
+
+const requestForm = document.getElementById('new-request');
+const trackingForm = document.getElementById('tracking');
+const code = document.getElementById('code');
+const send = document.getElementById('send');
+const requestStatus = document.getElementById('request-status');
+const api = '/api/demo/requests';
+const eventLabels = {
+  registered: 'ثبت پیش‌نویس',
+  submitted: 'ارسال',
+  simulation_response: 'دریافت پاسخ آزمایشی',
+  result_recorded: 'ثبت نتیجه',
+};
+async function request(path, options) {
+  const buttons = document.querySelectorAll('#new-request button, #tracking button');
+  buttons.forEach(control => { control.disabled = true; });
+  requestStatus.textContent = 'در حال پردازش…';
+  let allowSend = false;
+  try {
+    const response = await fetch(api + path, {...options, signal: AbortSignal.timeout(8000)});
+    if (response.status === 404) throw new Error('درخواست آزمایشی پیدا نشد.');
+    if (response.status === 409) throw new Error('برای گواهی، کد یک ادعای تکمیل‌شده لازم است.');
+    if (response.status === 422) throw new Error('قالب شناسه یا کد پیگیری را بررسی کنید.');
+    if (!response.ok) throw new Error('پردازش ناموفق بود. دوباره امتحان کنید.');
+    const item = await response.json();
+    code.value = item.code;
+    allowSend = item.status === 'draft';
+    const steps = item.events.map(event => eventLabels[event]).join(' ← ');
+    requestStatus.textContent = steps + (item.result ? '\nنتیجه: ' + item.result : '');
+  } catch (error) {
+    requestStatus.textContent = error.name === 'Error' ? error.message : 'ارتباط با سرویس برقرار نشد.';
+  } finally {
+    buttons.forEach(control => { control.disabled = false; });
+    send.disabled = !allowSend;
+  }
+}
+requestForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const data = new FormData(requestForm);
+  request('', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({service: data.get('service'), reference: data.get('reference').trim()}),
+  });
+});
+code.addEventListener('input', () => { send.disabled = true; });
+trackingForm.addEventListener('submit', event => {
+  event.preventDefault();
+  request('/' + encodeURIComponent(code.value.trim()));
+});
+send.addEventListener('click', () => {
+  request('/' + encodeURIComponent(code.value.trim()) + '/submit', {method: 'POST'});
+});
 </script></body></html>

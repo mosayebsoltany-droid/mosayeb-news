@@ -8,6 +8,7 @@ from sqlalchemy import text
 from app import models  # noqa: F401 — register models in Base.metadata
 from app.database import Base, SessionLocal, engine
 from app.schemas import HealthResponse
+from app.services import router as services_router
 
 
 @asynccontextmanager
@@ -19,10 +20,12 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="Real Estate Broker System — Simulation",
-    description="Step 1. Local simulation only; no connection to an official registry.",
-    version="0.1.2",
+    description="Local simulation only; no connection to an official registry.",
+    version="0.1.3",
     lifespan=lifespan,
 )
+
+app.include_router(services_router)
 
 
 @app.get("/", response_model=HealthResponse)
