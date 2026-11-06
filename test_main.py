@@ -18,6 +18,10 @@ from app.main import app
 with TestClient(app) as client:
     response = client.get("/health")
     assert response.status_code == 200
+    portal = client.get("/portal")
+    assert portal.status_code == 200
+    assert portal.headers["content-type"].startswith("text/html")
+    assert '<html lang="fa" dir="rtl">' in portal.text
     assert response.json() == {"status": "ok", "mode": "simulation"}
 """,
         ],
