@@ -66,20 +66,16 @@ RealEstateBrokerSystem/
 حذف `broker.db` همه کاربران و رویدادها را پاک می‌کند؛ برای تغییر ساختار در مراحل بعد، مهاجرت دیتابیس لازم است.
 فهرست نیازمندی‌ها به پله اول محدود است؛ کتابخانه‌های امنیت، تلاش مجدد و PDF همراه همان مرحله اضافه می‌شوند.
 
-## اجرای Docker و تحویل نسخه
+## اجرای Docker و مشاهده از گوشی
 
 ```bash
-docker build -t real-estate-broker:local .
-docker run -d --name broker -p 127.0.0.1:8000:8000 -v broker-data:/data real-estate-broker:local
+docker compose up --build --detach --wait
 curl -fsS http://127.0.0.1:8000/health
 ```
 
-دیتابیس SQLite در ولوم `broker-data` می‌ماند. برای اولین اجرا از یک ولوم خالی استفاده کنید. در سرور، دسترسی مرورگر را از طریق پراکسی HTTPS تنظیم کنید. این نسخه آزمایشی را با داده واقعی استفاده نکنید.
+[Swagger محلی](http://127.0.0.1:8000/docs) روی دستگاهی باز می‌شود که Docker روی آن اجرا شده است. برای گوشی، از مرورگر وارد [Codespaces همین شاخه](https://github.com/codespaces/new?repo=1422906786&ref=real-estate-broker) شوید و محیط را بسازید. راه‌اندازی محیط کانتینر را با Compose اجرا می‌کند. در تب **Ports** آدرس خصوصی پورت **8000** را باز کنید و `/docs` را به انتهای آن اضافه کنید. اگر محیط از قبل ساخته شده است، پیکربندی جدید را با **Rebuild Container** اعمال کنید.
 
-GitHub Actions روی شاخه `real-estate-broker` و درخواست‌های ادغام به آن، تست Python و اجرای آزمایشی کانتینر را انجام می‌دهد. با ثبت تگ `broker-vX.Y.Z` روی کامیت همین شاخه، پس از موفقیت تست‌ها، تصویر همان نسخه در GHCR منتشر می‌شود. قبل از تگ، نسخه FastAPI و CHANGELOG را به‌روزرسانی کنید.
-
-روی سرور Docker، با دسترسی خواندن بسته وارد GHCR شوید، تصویر تگ‌شده را pull کنید و همان دستور docker run بالا را با نام تصویر GHCR اجرا کنید. برای ارتقا، کانتینر قبلی را پس از پشتیبان‌گیری از ولوم متوقف و جایگزین کنید و ولوم را دوباره متصل کنید. انتشار تصویر خودکار است. استقرار روی سرور پس از تعیین مقصد و دسترسی انجام می‌شود.
-
-```bash
-docker pull ghcr.io/mosayebsoltany-droid/real-estate-broker-system:broker-v0.1.0
-```
+- [راهنمای Docker و انتشار](docs/OPERATIONS.md)
+- [تنظیمات، توکن‌ها و API](docs/CONFIGURATION.md)
+- [فهرست تسک‌ها و معیار تحویل](docs/TASKS.md)
+- [تغییرات نسخه‌ها](CHANGELOG.md)

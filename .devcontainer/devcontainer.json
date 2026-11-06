@@ -1,8 +1,10 @@
 {
   "name": "Real Estate Broker System",
-  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
-  "postCreateCommand": "python -m pip install -r requirements.txt",
-  "postAttachCommand": "bash .devcontainer/start-demo.sh",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postStartCommand": "docker compose up --build --detach --wait --wait-timeout 120",
   "forwardPorts": [8000],
   "portsAttributes": {
     "8000": {

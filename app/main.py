@@ -18,7 +18,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Real Estate Broker System — Simulation",
     description="Step 1. Local simulation only; no connection to an official registry.",
-    version="0.1.0",
+    version="0.1.1",
     lifespan=lifespan,
 )
 

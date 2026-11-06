@@ -1,0 +1,14 @@
+services:
+  broker:
+    image: real-estate-broker:local
+    build:
+      context: .
+      labels:
+        org.opencontainers.image.source: https://github.com/mosayebsoltany-droid/mosayeb-news
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - broker-data:/data
+
+volumes:
+  broker-data:
