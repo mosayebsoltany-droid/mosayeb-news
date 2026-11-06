@@ -79,3 +79,9 @@ curl -fsS http://127.0.0.1:8000/health
 - [تنظیمات، توکن‌ها و API](docs/CONFIGURATION.md)
 - [فهرست تسک‌ها و معیار تحویل](docs/TASKS.md)
 - [تغییرات نسخه‌ها](CHANGELOG.md)
+
+## آزمون و تحویل نسخهٔ آزمایشی
+
+وابستگی‌ها را با `python -m pip install -r requirements-dev.txt` نصب کنید و `python -m pytest -q` را اجرا کنید. برای اجرای مستقیم روی Debian یا Ubuntu، بستهٔ `fonts-dejavu-core` برای PDF فارسی لازم است. اجرای Docker این بسته را نصب می‌کند.
+
+[مستندات ورود، گواهی PDF و مدیریت قطعی](docs/CONFIGURATION.md)

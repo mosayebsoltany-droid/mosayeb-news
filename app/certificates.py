@@ -1,10 +1,12 @@
+from datetime import datetime
+
 from fpdf import FPDF
 from fastapi import Response
 
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 
-def certificate_pdf(code: str, result: str) -> Response:
+def certificate_pdf(code: str, result: str, created_at: datetime | None = None) -> Response:
     pdf = FPDF()
     pdf.add_page()
     pdf.add_font("Persian", fname=FONT)
@@ -16,7 +18,10 @@ def certificate_pdf(code: str, result: str) -> Response:
     pdf.ln(10)
     pdf.set_text_color(23, 53, 47)
     pdf.set_font("Persian", size=14)
-    for label, value in (("کد پیگیری ادعا", code), ("مرجع نتیجه", result)):
+    fields = [("کد پیگیری ادعا", code), ("مرجع نتیجه", result)]
+    if created_at is not None:
+        fields.append(("زمان ثبت ادعا", created_at.strftime("%Y-%m-%d %H:%M:%S UTC")))
+    for label, value in fields:
         pdf.cell(0, 10, label, align="R", new_x="LMARGIN", new_y="NEXT")
         pdf.cell(0, 10, value, align="R", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(3)

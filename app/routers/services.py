@@ -9,11 +9,13 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 from app.auth import Database, get_current_user, log_action
 from app.certificates import certificate_pdf
 from app.models import DocumentRequest, User
+from app.registry_breaker import RegistryBreaker, RegistryUnavailable
 from app.routers.mock_registry import mock_registry
 from app.schemas import ClaimCreate, RequestResponse
 
 router = APIRouter(prefix="/services", tags=["سرویس‌های کارگزاری"])
 CurrentUser = Annotated[User, Depends(get_current_user)]
+registry_breaker = RegistryBreaker()
 
 
 def transient(error: BaseException) -> bool:
@@ -25,13 +27,23 @@ def transient(error: BaseException) -> bool:
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=4),
        retry=retry_if_exception(transient), reraise=True)
 async def call_mock_registry(claim: ClaimCreate) -> str:
-    # Use the same mock handler in-process, so container ports are irrelevant.
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=mock_registry), base_url="http://mock-registry"
-    ) as client:
-        response = await client.post("/submit", json=claim.model_dump())
-        response.raise_for_status()
-        return response.json()["message"]
+    generation = registry_breaker.acquire()
+    outcome = "cancelled"
+    try:
+        # Use the same mock handler in-process, so container ports are irrelevant.
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=mock_registry), base_url="http://mock-registry"
+        ) as client:
+            response = await client.post("/submit", json=claim.model_dump())
+            response.raise_for_status()
+            message = response.json()["message"]
+        outcome = "reachable"
+        return message
+    except (httpx.RequestError, httpx.HTTPStatusError) as error:
+        outcome = "unavailable" if transient(error) else "reachable"
+        raise
+    finally:
+        registry_breaker.finish(generation, outcome)
 
 
 def output(record: DocumentRequest) -> RequestResponse:
@@ -54,9 +66,9 @@ async def register_claim(claim: ClaimCreate, db: Database, user: CurrentUser, re
     try:
         record.details = await call_mock_registry(claim)
         record.status = "success"
-    except (httpx.RequestError, httpx.HTTPStatusError) as error:
+    except (RegistryUnavailable, httpx.RequestError, httpx.HTTPStatusError) as error:
         record.status = "failed"
-        unavailable = transient(error)
+        unavailable = isinstance(error, RegistryUnavailable) or transient(error)
         record.details = ("سامانهٔ شبیه‌سازی در دسترس نیست." if unavailable
                           else "سامانهٔ شبیه‌سازی درخواست را نپذیرفت.")
         response.status_code = 503 if unavailable else 422
@@ -89,7 +101,8 @@ def track_status(tracking_code: str, db: Database, user: CurrentUser):
     return output(record)
 
 
-@router.get("/claims/{tracking_code}/certificate.pdf", response_class=Response,
+@router.get("/certificate/{tracking_code}", response_class=Response,
+            summary="دریافت گواهی PDF پرونده",
             responses={200: {"content": {"application/pdf": {}}}})
 def download_claim_certificate(tracking_code: str, db: Database, user: CurrentUser):
     claim = db.scalar(select(DocumentRequest).where(
@@ -101,7 +114,7 @@ def download_claim_certificate(tracking_code: str, db: Database, user: CurrentUs
         raise HTTPException(404, "ادعایی با این کد رهگیری یافت نشد.")
     if claim.status != "success":
         raise HTTPException(409, "گواهی فقط برای ادعای موفق قابل دریافت است.")
-    pdf = certificate_pdf(claim.tracking_code, "SIMULATION")
+    pdf = certificate_pdf(claim.tracking_code, "SIMULATION", claim.created_at)
     log_action(db, user.id, "DOWNLOAD_CERTIFICATE", claim.tracking_code)
     db.commit()
     return pdf

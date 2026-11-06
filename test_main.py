@@ -97,7 +97,7 @@ with TestClient(app) as client:
     url = "/services/track/" + claim.json()["tracking_code"]
     assert client.get(url, headers=alice).json() == claim.json()
     assert client.get(url, headers=bob).status_code == 404
-    pdf_url = "/services/claims/" + claim.json()["tracking_code"] + "/certificate.pdf"
+    pdf_url = "/services/certificate/" + claim.json()["tracking_code"]
     assert client.get(pdf_url).status_code == 401
     assert client.get(pdf_url, headers=bob).status_code == 404
     pdf = client.get(pdf_url, headers=alice)
@@ -110,9 +110,23 @@ with TestClient(app) as client:
         assert failed.status_code == 503, failed.text
         assert mock.call_count == 3
     assert failed.json()["status"] == "failed"
-    failed_pdf = "/services/claims/" + failed.json()["tracking_code"] + "/certificate.pdf"
+    failed_pdf = "/services/certificate/" + failed.json()["tracking_code"]
     assert client.get(failed_pdf, headers=alice).status_code == 409
     assert client.get("/services/track/" + failed.json()["tracking_code"], headers=alice).json() == failed.json()
+    with patch("app.registry_breaker.monotonic", return_value=100) as clock:
+        with patch("app.routers.mock_registry.random", return_value=0) as mock:
+            # Three previous failures plus two now open the circuit on attempt five.
+            assert client.post("/services/claims", headers=alice, json=payload).status_code == 503
+            assert mock.call_count == 2
+            blocked = client.post("/services/claims", headers=alice, json=payload)
+            assert blocked.status_code == 503
+            assert blocked.json()["status"] == "failed"
+            assert mock.call_count == 2
+        clock.return_value = 160
+        with patch("app.routers.mock_registry.random", return_value=1) as mock:
+            assert client.post("/services/claims", headers=alice, json=payload).status_code == 201
+            assert client.post("/services/claims", headers=alice, json=payload).status_code == 201
+            assert mock.call_count == 2
     maps = [client.post("/services/maps", headers=alice, files={"file": ("demo.txt", b"test")}) for _ in range(2)]
     assert all(reply.status_code == 201 for reply in maps), [reply.text for reply in maps]
     assert maps[0].json()["tracking_code"] != maps[1].json()["tracking_code"]
