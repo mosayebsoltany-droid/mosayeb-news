@@ -57,5 +57,5 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/broker-v* ]]; then tag="$GITHUB_REF_NAME"; fi
           image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/real-estate-broker-system:$tag"
           docker tag real-estate-broker:local "$image"
-          docker push "$image"
+          docker push --platform linux/amd64 "$image"
           echo "Published \`$image\`" >> "$GITHUB_STEP_SUMMARY"
