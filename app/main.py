@@ -7,6 +7,8 @@ from sqlalchemy import text
 
 from app import models  # noqa: F401 — register models in Base.metadata
 from app.database import Base, SessionLocal, engine
+from app.routers import services, users
+from app.routers.mock_registry import mock_registry
 from app.schemas import HealthResponse
 from app.services import router as services_router
 
@@ -21,11 +23,14 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Real Estate Broker System — Simulation",
     description="Local simulation only; no connection to an official registry.",
-    version="0.1.3",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
 app.include_router(services_router)
+app.include_router(users.router)
+app.include_router(services.router)
+app.mount('/mock-registry', mock_registry)
 
 
 @app.get("/", response_model=HealthResponse)

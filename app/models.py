@@ -38,3 +38,17 @@ class AuditLog(Base):
     )
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
     user: Mapped[User] = relationship(back_populates="audit_logs")
+
+
+class DocumentRequest(Base):
+    __tablename__ = "document_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tracking_code: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    request_type: Mapped[str] = mapped_column(String(12))
+    status: Mapped[str] = mapped_column(String(12), default="pending")
+    details: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )

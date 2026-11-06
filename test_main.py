@@ -52,3 +52,58 @@ with TestClient(app) as client:
     with sqlite3.connect(database) as connection:
         rows = connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
         assert {"users", "audit_logs"} <= {name for (name,) in rows}
+
+
+def test_authenticated_services(tmp_path):
+    subprocess.run(
+        [sys.executable, "-c", """
+from unittest.mock import patch
+from fastapi.testclient import TestClient
+from tenacity import wait_none
+from app.auth import passwords
+from app.database import SessionLocal
+from app.main import app
+from app.models import AuditLog, User
+from app.routers.services import call_mock_registry
+
+with TestClient(app) as client:
+    with SessionLocal() as db:
+        hashed = passwords.hash("test password only")
+        db.add_all(User(username=name, hashed_password=hashed) for name in ("alice", "bob"))
+        db.commit()
+    def login(username):
+        reply = client.post("/auth/token", data={"username": username, "password": "test password only"})
+        assert reply.status_code == 200, reply.text
+        return {"Authorization": "Bearer " + reply.json()["access_token"]}
+
+    payload = {"national_id": "0123456789", "claim_type": "demo"}
+    assert client.post("/services/claims", json=payload).status_code == 401
+    alice = login("alice")
+    bob = login("bob")
+    assert client.post("/services/claims", headers=alice, json={**payload, "national_id": "12"}).status_code == 422
+    call_mock_registry.retry.wait = wait_none()
+    with patch("app.routers.mock_registry.random", side_effect=[0, 0, 1]) as mock:
+        claim = client.post("/services/claims", headers=alice, json=payload)
+        assert claim.status_code == 201, claim.text
+        assert mock.call_count == 3
+    assert claim.json()["status"] == "success"
+    url = "/services/track/" + claim.json()["tracking_code"]
+    assert client.get(url, headers=alice).json() == claim.json()
+    assert client.get(url, headers=bob).status_code == 404
+    with patch("app.routers.mock_registry.random", return_value=0) as mock:
+        failed = client.post("/services/claims", headers=alice, json=payload)
+        assert failed.status_code == 503, failed.text
+        assert mock.call_count == 3
+    assert failed.json()["status"] == "failed"
+    assert client.get("/services/track/" + failed.json()["tracking_code"], headers=alice).json() == failed.json()
+    maps = [client.post("/services/maps", headers=alice, files={"file": ("demo.txt", b"test")}) for _ in range(2)]
+    assert all(reply.status_code == 201 for reply in maps), [reply.text for reply in maps]
+    assert maps[0].json()["tracking_code"] != maps[1].json()["tracking_code"]
+    with SessionLocal() as db:
+        assert {row.action for row in db.query(AuditLog)} == {"LOGIN", "CLAIM_SUCCESS", "CLAIM_FAILED", "REQUEST_MAP"}
+"""],
+        cwd=Path(__file__).resolve().parent,
+        env={**os.environ, "BROKER_DATABASE_URL": f"sqlite:///{tmp_path / 'phase4.db'}",
+             "BROKER_JWT_SECRET": "test-only-secret-not-for-deployment-000000"},
+        check=True,
+    )

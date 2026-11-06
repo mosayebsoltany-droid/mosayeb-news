@@ -32,3 +32,17 @@ class AuditLogRead(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     mode: str
+
+
+class ClaimCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    national_id: str = Field(pattern=r"^[0-9]{10}$")
+    claim_type: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class RequestResponse(BaseModel):
+    id: int
+    tracking_code: str
+    status: str
+    message: str

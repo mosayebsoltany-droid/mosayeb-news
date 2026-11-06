@@ -5,6 +5,9 @@ services:
       context: .
       labels:
         org.opencontainers.image.source: https://github.com/mosayebsoltany-droid/mosayeb-news
+    environment:
+      BROKER_JWT_SECRET: ${BROKER_JWT_SECRET:-}
+      BROKER_MOCK_FAILURE_RATE: ${BROKER_MOCK_FAILURE_RATE:-0.2}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
