@@ -1,7 +1,8 @@
-node_modules/
-.dev.vars
+venv/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+broker.db
+broker.db-*
 .env
-.env.*
-!.env.example
-.wrangler/
-dist/

@@ -1,0 +1,40 @@
+from datetime import datetime, timezone
+from enum import Enum
+
+from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+
+class UserRole(str, Enum):
+    admin = "admin"
+    broker = "broker"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255))
+    role: Mapped[UserRole] = mapped_column(
+        SAEnum(UserRole, native_enum=False, create_constraint=True, validate_strings=True),
+        default=UserRole.broker,
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    audit_logs: Mapped[list["AuditLog"]] = relationship(back_populates="user")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    action: Mapped[str] = mapped_column(String(100))
+    # SQLite stores a naive datetime; values in this column are always UTC.
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user: Mapped[User] = relationship(back_populates="audit_logs")
