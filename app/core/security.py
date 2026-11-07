@@ -1,6 +1,9 @@
 import logging
 from time import monotonic
 from uuid import uuid4
+from secrets import token_urlsafe
+from app.core.headers import response_headers
+from app.core.body_limit import RequestBodyLimitMiddleware
 from urllib.parse import urlsplit
 
 from fastapi.exceptions import RequestValidationError
@@ -22,6 +25,7 @@ class SecurityHeadersMiddleware:
             return await self.app(scope, receive, send)
         identifier = uuid4().hex
         scope.setdefault("state", {})["request_id"] = identifier
+        scope["state"]["csp_nonce"] = token_urlsafe(24)
 
         started = monotonic()
         status = 500
@@ -31,7 +35,7 @@ class SecurityHeadersMiddleware:
             if message["type"] == "http.response.start":
                 status = message["status"]
                 headers = list(message.get("headers", []))
-                required = {**SAFE_HEADERS, "X-Request-ID": identifier}
+                required = response_headers(scope, identifier)
                 replaced = {key.lower().encode("ascii") for key in required}
                 headers = [(key, value) for key, value in headers if key.lower() not in replaced]
                 headers.extend((key.lower().encode("ascii"), value.encode("ascii"))
@@ -72,6 +76,7 @@ def configure_security(app):
     app.state.cors_origins = origins
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, global_exception_handler)
+    app.add_middleware(RequestBodyLimitMiddleware)
     app.add_middleware(
         CORSMiddleware, allow_origins=origins, allow_credentials=False,
         allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"],

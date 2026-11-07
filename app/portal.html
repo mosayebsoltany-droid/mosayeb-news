@@ -3,6 +3,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#edf4f1;color:#17352f;font:16px/1.8 system-ui,Tahoma,sans-serif}header,main{max-width:920px;margin:auto;padding:0 20px}header{display:flex;justify-content:space-between;align-items:center;min-height:74px;gap:12px;font-weight:700}.tag{background:#d9eae3;padding:4px 12px;border-radius:30px;font-size:.85rem}.hero{background:#103f3a;color:white;padding:clamp(25px,6vw,54px);border-radius:22px;border-inline-start:6px solid #81cba6}.hero small{color:#bce6d2}h1{font-size:clamp(1.85rem,5vw,3.1rem);line-height:1.35;margin:.25em 0}.hero p{color:#d8eee5;margin-bottom:0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:18px 0}.card{padding:22px;border:1px solid #d5e5de;border-radius:16px;background:white}h2{font-size:1.2rem;margin:0}.card p,footer{color:#455f58}button,a{display:inline-block;background:#086354;color:white;border:0;border-radius:9px;padding:8px 14px;text-decoration:none;font:inherit;font-weight:700;cursor:pointer}button:disabled{opacity:.7}:focus-visible{outline:3px solid #ad570c;outline-offset:3px}#status{font-weight:700}footer{font-size:.9rem;padding-bottom:24px}@media(max-width:620px){.grid{grid-template-columns:1fr}}
 form{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:14px 0}input,select{font:inherit;padding:6px;border:1px solid #78968b;border-radius:6px;max-width:100%}#request-status{white-space:pre-line;overflow-wrap:anywhere}
+[hidden]{display:none!important}
 </style></head>
 <body><header><span>کارگزاری فنی و مهندسی ثبت</span><span class="tag">نسخهٔ آزمایشی</span></header>
 <main><section class="hero"><small>محیط شبیه‌سازی</small><h1>میز کار کارگزاری ثبت</h1><p>وضعیت سرویس و پایگاه داده را بررسی کنید و مستندات فنی سامانه را ببینید.</p></section>
@@ -29,7 +30,7 @@ form{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:14px 0}input,
 <button id="send" type="button" disabled>ارسال آزمایشی</button>
 </form>
 <p id="request-status" role="status"></p>
-<a id="certificate-download" style="display:none">دانلود گواهی PDF آزمایشی</a>
+<a id="certificate-download" hidden>دانلود گواهی PDF آزمایشی</a>
 </section>
 <footer>خدمات در محیط شبیه‌سازی اجرا می‌شوند. از وارد کردن اطلاعات واقعی خودداری کنید.</footer></main>
 <script>
@@ -68,7 +69,7 @@ async function request(path, options) {
   const buttons = document.querySelectorAll('#new-request button, #tracking button');
   buttons.forEach(control => { control.disabled = true; });
   requestStatus.textContent = 'در حال پردازش…';
-  certificate.style.display = 'none';
+  certificate.hidden = true;
   let allowSend = false;
   try {
     const response = await fetch(api + path, {...options, signal: AbortSignal.timeout(8000)});
@@ -81,7 +82,7 @@ async function request(path, options) {
     allowSend = item.status === 'draft';
     if (item.service === 'certificate' && item.status === 'completed') {
       certificate.href = api + '/' + item.code + '/certificate.pdf';
-      certificate.style.display = 'inline-block';
+      certificate.hidden = false;
     }
     const steps = item.events.map(event => eventLabels[event]).join(' ← ');
     requestStatus.textContent = steps + (item.result ? '\nنتیجه: ' + item.result : '');
@@ -103,7 +104,7 @@ requestForm.addEventListener('submit', event => {
 });
 code.addEventListener('input', () => {
   send.disabled = true;
-  certificate.style.display = 'none';
+  certificate.hidden = true;
 });
 trackingForm.addEventListener('submit', event => {
   event.preventDefault();

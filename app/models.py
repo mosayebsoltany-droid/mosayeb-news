@@ -30,14 +30,16 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     action: Mapped[str] = mapped_column(String(100))
     # SQLite stores a naive datetime; values in this column are always UTC.
     timestamp: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
-    user: Mapped[User] = relationship(back_populates="audit_logs")
+    user: Mapped[User | None] = relationship(back_populates="audit_logs")
 
 
 class DocumentRequest(Base):

@@ -88,7 +88,7 @@ def test_cli_account_creation_and_login(broker, monkeypatch):
     with sessions() as db:
         user = db.scalar(select(User).where(User.username == "test_broker"))
         assert user.hashed_password != PASSWORD
-        assert db.scalar(select(AuditLog.action)) == "LOGIN"
+        assert set(db.scalars(select(AuditLog.action))) == {"FAILED_LOGIN_ATTEMPT", "LOGIN"}
 
 
 def test_protected_routes_require_a_valid_token(broker):

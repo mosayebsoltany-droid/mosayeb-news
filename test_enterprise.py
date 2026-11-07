@@ -108,7 +108,7 @@ def test_claim_limit_is_per_account_and_applies_before_submission(accounts):
 
 def test_login_limit_cannot_be_bypassed_by_forwarded_header(broker):
     client, _ = broker
-    for i in range(10):
+    for i in range(5):
         assert client.post("/auth/token", data={"username": "missing", "password": "wrong"},
                            headers={"X-Forwarded-For": f"10.0.0.{i}"}).status_code == 401
     response = client.post("/auth/token", data={"username": "missing", "password": "wrong"})

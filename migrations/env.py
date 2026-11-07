@@ -14,12 +14,18 @@ if context.is_offline_mode():
     with context.begin_transaction():
         context.run_migrations()
 else:
-    engine = build_engine(url)
-    try:
-        with engine.connect() as connection:
-            context.configure(connection=connection, target_metadata=target_metadata,
-                              compare_type=True, render_as_batch=engine.dialect.name == "sqlite")
-            with context.begin_transaction():
-                context.run_migrations()
-    finally:
-        engine.dispose()
+    supplied = config.attributes.get("connection")
+    def migrate(connection):
+        context.configure(connection=connection, target_metadata=target_metadata,
+                          compare_type=True, render_as_batch=connection.dialect.name == "sqlite")
+        with context.begin_transaction():
+            context.run_migrations()
+    if supplied is not None:
+        migrate(supplied)
+    else:
+        engine = build_engine(url)
+        try:
+            with engine.connect() as connection:
+                migrate(connection)
+        finally:
+            engine.dispose()

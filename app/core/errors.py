@@ -5,13 +5,9 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.core.headers import SAFE_HEADERS, response_headers
+
 logger = logging.getLogger("broker.errors")
-SAFE_HEADERS = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "same-origin",
-    "Cache-Control": "no-store",
-}
 
 
 def request_id(request: Request) -> str:
@@ -40,7 +36,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"detail": "داده‌های ارسالی نامعتبر است. لطفاً قالب فیلدها را بررسی کنید.",
                  "errors": errors, "request_id": identifier},
-        headers={**SAFE_HEADERS, "X-Request-ID": identifier},
+        headers=response_headers(request.scope, identifier),
     )
 
 
@@ -49,7 +45,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error("unhandled_error", extra={"request_id": identifier,
                  "error_kind": type(exc).__name__, "method": request.method,
                  "route": safe_route(request)})
-    headers = {**SAFE_HEADERS, "X-Request-ID": identifier}
+    headers = response_headers(request.scope, identifier)
     # ServerErrorMiddleware is outside FastAPI's CORS middleware.
     origin = request.headers.get("origin")
     if origin and origin in getattr(request.app.state, "cors_origins", ()):

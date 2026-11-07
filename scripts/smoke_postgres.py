@@ -37,6 +37,12 @@ def main():
         admin_token = client.post("/auth/token", data={"username": name+"-admin", "password": password}).json()["access_token"]
         stats = client.get("/analytics/dashboard", headers={"Authorization": "Bearer "+admin_token})
         assert stats.status_code == 200 and stats.json()["successful_requests"] >= 5
+        rejected = client.post("/auth/token", data={"username": "missing-security-fixture", "password": "wrong-test-only"})
+        assert rejected.status_code == 401
+        logs = client.get("/admin/audit-logs", headers={"Authorization": "Bearer "+admin_token})
+        assert logs.status_code == 200
+        assert any(row["action"] == "FAILED_LOGIN_ATTEMPT" and row["user_id"] is None and row["ip_address"] for row in logs.json())
+        assert "wrong-test-only" not in logs.text and "missing-security-fixture" not in logs.text
         chart = client.get("/admin/analytics/chart-data", headers={"Authorization": "Bearer "+admin_token})
         assert chart.status_code == 200 and len(chart.json()["labels"]) == 7
         assert client.get("/admin").status_code == 200

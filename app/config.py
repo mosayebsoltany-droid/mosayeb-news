@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 
 
 class Settings(BaseSettings):

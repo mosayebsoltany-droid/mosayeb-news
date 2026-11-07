@@ -3,7 +3,9 @@ import asyncio
 from pathlib import Path
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html
+from app.core.pages import nonce_html, local_page
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from app.config import VERSION, get_settings
@@ -27,7 +29,8 @@ from app.services import router as services_router
 async def lifespan(_app: FastAPI):
     configure_logging()
     if engine.dialect.name == "sqlite" and get_settings().auto_create_tables:
-        Base.metadata.create_all(bind=engine)
+        from app.migrate import migrate_sqlite
+        migrate_sqlite(engine)
     worker = (asyncio.create_task(run_worker(SessionLocal))
               if get_settings().notification_worker_enabled else None)
     try:
@@ -44,6 +47,7 @@ app = FastAPI(
     title="سامانه کارگزاری فنی و مهندسی ثبت اسناد — شبیه‌سازی",
     description="ورود JWT، ثبت ادعا، درخواست نقشه، پیگیری و PDF آزمایشی. ارتباط شبیه‌سازی‌شده با Retry و Circuit Breaker.",
     version=VERSION,
+    docs_url=None, redoc_url=None,
     lifespan=lifespan,
 )
 
@@ -100,10 +104,29 @@ def health():
 
 
 @app.get("/portal", response_class=FileResponse, include_in_schema=False)
-def portal():
-    return FileResponse(Path(__file__).with_name("portal.html"), media_type="text/html")
+def portal(request: Request):
+    return local_page("portal.html", request)
 
 
 @app.get("/admin", response_class=FileResponse, include_in_schema=False)
-def admin_ui():
-    return FileResponse(Path(__file__).with_name("admin.html"), media_type="text/html")
+def admin_ui(request: Request):
+    return local_page("admin.html", request)
+
+
+@app.get("/docs", include_in_schema=False)
+def swagger_docs(request: Request):
+    html = get_swagger_ui_html(openapi_url=app.openapi_url, title=app.title + " - Swagger UI",
+                               oauth2_redirect_url="/docs/oauth2-redirect",
+                               swagger_favicon_url="/favicon.ico")
+    return nonce_html(html.body.decode("utf-8"), request)
+
+
+@app.get("/docs/oauth2-redirect", include_in_schema=False)
+def swagger_redirect(request: Request):
+    return nonce_html(get_swagger_ui_oauth2_redirect_html().body.decode("utf-8"), request)
+
+
+@app.get("/favicon.ico", include_in_schema=False, status_code=204)
+def favicon():
+    from fastapi import Response
+    return Response(status_code=204)

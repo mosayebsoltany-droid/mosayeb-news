@@ -72,7 +72,7 @@ def test_security_headers_cover_errors_and_portal(broker):
         response = client.get(path)
         assert response.headers["cache-control"] == "no-store"
         assert response.headers["x-frame-options"] == "DENY"
-        assert response.headers["referrer-policy"] == "same-origin"
+        assert response.headers["referrer-policy"] == "no-referrer"
         assert len(response.headers["x-request-id"]) == 32
 
 

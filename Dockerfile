@@ -24,4 +24,4 @@ COPY migrations ./migrations
 USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=4s --start-period=20s CMD ["python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/ready', timeout=3).close()"]
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--log-config", "app/uvicorn_logging.json"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--no-proxy-headers", "--log-config", "app/uvicorn_logging.json"]

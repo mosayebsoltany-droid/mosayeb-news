@@ -23,7 +23,9 @@ class UserRead(BaseModel):
 class AuditLogRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    user_id: int
+    user_id: int | None
+    ip_address: str | None
+    request_id: str | None
     action: str
     timestamp: datetime
     details: str | None
