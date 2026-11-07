@@ -1,4 +1,5 @@
 from random import random
+import re
 
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -19,3 +20,13 @@ def submit(claim: ClaimCreate):
     if random() < get_settings().mock_failure_rate:
         raise HTTPException(503, "Simulated registry outage")
     return {"message": "ادعا در سامانهٔ شبیه‌سازی پذیرفته شد."}
+
+
+@mock_registry.get("/identity-check/{national_id}", summary="استعلام ساختگی هویت؛ فاقد اعتبار واقعی")
+def identity_check(national_id: str):
+    if not re.fullmatch(r"[0-9]{10}", national_id):
+        raise HTTPException(400, "کد ملی نامعتبر است")
+    # A test fixture rule only: the prefix does not represent anyone's real vital status.
+    alive = not national_id.startswith("9")
+    return {"national_id": national_id, "is_alive": alive, "simulation": True,
+            "status": "simulated_alive" if alive else "simulated_deceased"}

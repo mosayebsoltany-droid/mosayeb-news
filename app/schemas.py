@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,3 +46,13 @@ class RequestResponse(BaseModel):
     tracking_code: str
     status: str
     message: str
+
+
+class DashboardStats(BaseModel):
+    total_requests: int
+    successful_requests: int
+    failed_requests: int
+    pending_requests: int
+    top_broker: str
+    start_date: date
+    end_date: date

@@ -2,7 +2,10 @@ from typing import Annotated
 from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
+from pydantic import BaseModel, StrictBool, ValidationError
+from typing import Literal
+from app.core.rate_limit import limiter
 from sqlalchemy import select
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
@@ -51,6 +54,28 @@ async def call_mock_registry(claim: ClaimCreate) -> str:
         registry_breaker.finish(generation, outcome)
 
 
+class IdentityResult(BaseModel):
+    national_id: str
+    is_alive: StrictBool
+    simulation: Literal[True]
+
+
+async def check_identity(national_id: str) -> None:
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=mock_registry),
+                                     base_url="http://mock-registry", trust_env=False,
+                                     timeout=get_settings().registry_timeout_seconds) as client:
+            reply = await client.get(f"/identity-check/{national_id}")
+            reply.raise_for_status()
+            identity = IdentityResult.model_validate(reply.json())
+        if identity.national_id != national_id:
+            raise ValueError("Identity mismatch")
+    except (httpx.RequestError, httpx.HTTPStatusError, ValidationError, ValueError):
+        raise HTTPException(503, "سرویس استعلام هویت شبیه‌سازی‌شده در دسترس نیست.") from None
+    if not identity.is_alive:
+        raise HTTPException(400, "در سناریوی آزمایشی، هویت متوفی شبیه‌سازی شده و ادعا رد شد.")
+
+
 def output(record: DocumentRequest) -> RequestResponse:
     return RequestResponse(id=record.id, tracking_code=record.tracking_code,
                            status=record.status, message=record.details or "در حال بررسی")
@@ -65,7 +90,15 @@ def create_record(db: Database, user: User, kind: str) -> DocumentRequest:
 
 
 @router.post("/claims", response_model=RequestResponse, status_code=201)
-async def register_claim(claim: ClaimCreate, db: Database, user: CurrentUser, response: Response):
+@limiter.limit("5/minute")
+async def register_claim(request: Request, claim: ClaimCreate, db: Database, user: CurrentUser, response: Response):
+    try:
+        await check_identity(claim.national_id)
+    except HTTPException as error:
+        log_action(db, user.id, "IDENTITY_REJECTED" if error.status_code == 400 else "IDENTITY_UNAVAILABLE",
+                   "Simulated identity verification blocked submission")
+        db.commit()
+        raise
     record = create_record(db, user, "claim")
     db.commit()
     try:

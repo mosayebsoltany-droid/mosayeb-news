@@ -55,6 +55,7 @@ jobs:
           BROKER_JWT_SECRET: ci-disposable-compose-signing-secret-000000
           BROKER_POSTGRES_PASSWORD: ci_disposable_compose_password
           BROKER_MOCK_FAILURE_RATE: "0"
+          BROKER_RATE_LIMIT_STORAGE_URI: redis://redis:6379/0
         run: |
           trap 'docker compose -f compose.postgres.yaml --profile cache logs --tail 100; docker compose -f compose.postgres.yaml --profile cache down --volumes' EXIT
           docker compose -f compose.postgres.yaml --profile cache up --build --detach --wait --wait-timeout 180
@@ -67,6 +68,12 @@ jobs:
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8002/ready)" = 503
           curl --fail --silent --show-error http://127.0.0.1:8002/live
           docker compose -f compose.postgres.yaml start db
+          curl --fail --silent --show-error --retry 20 --retry-delay 1 --retry-all-errors http://127.0.0.1:8002/ready
+          docker compose -f compose.postgres.yaml stop redis
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -d 'username=missing&password=ci-test-only' http://127.0.0.1:8002/auth/token)" = 503
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8002/ready)" = 503
+          curl --fail --silent --show-error http://127.0.0.1:8002/live
+          docker compose -f compose.postgres.yaml start redis
           curl --fail --silent --show-error --retry 20 --retry-delay 1 --retry-all-errors http://127.0.0.1:8002/ready
           docker compose -f compose.postgres.yaml logs --no-log-prefix broker > /tmp/broker-json.log
           python -c 'import json; lines=open("/tmp/broker-json.log").readlines(); logs=[json.loads(s) for s in lines if s.startswith("{")]; assert any(s.get("message")=="request_completed" for s in logs)'

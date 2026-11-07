@@ -4,6 +4,7 @@ services:
     build: .
     image: real-estate-broker:staging
     environment:
+      BROKER_RATE_LIMIT_STORAGE_URI: ${BROKER_RATE_LIMIT_STORAGE_URI:-memory://}
       BROKER_ACCESS_TOKEN_EXPIRE_MINUTES: ${BROKER_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       BROKER_MOCK_REGISTRY_URL: ${BROKER_MOCK_REGISTRY_URL:-http://mock-registry/submit}
       BROKER_REGISTRY_TIMEOUT_SECONDS: ${BROKER_REGISTRY_TIMEOUT_SECONDS:-5}

@@ -68,7 +68,8 @@ def test_external_mock_url_and_no_retry_on_client_error(accounts, monkeypatch):
         return httpx.Response(400, json={"detail": "invalid demo input"})
     original = httpx.AsyncClient
     def mock_client(**kwargs):
-        kwargs["transport"] = httpx.MockTransport(respond)
+        if not isinstance(kwargs.get("transport"), httpx.ASGITransport):
+            kwargs["transport"] = httpx.MockTransport(respond)
         return original(**kwargs)
     with patch("app.routers.services.httpx.AsyncClient", side_effect=mock_client):
         response = client.post("/services/claims", headers=headers,

@@ -1,5 +1,6 @@
 name: broker-postgres
 x-broker-env: &broker-env
+  BROKER_RATE_LIMIT_STORAGE_URI: ${BROKER_RATE_LIMIT_STORAGE_URI:-memory://}
   BROKER_DATABASE_URL: postgresql+psycopg://broker:${BROKER_POSTGRES_PASSWORD:?Set a URL-safe database password}@db:5432/broker
   BROKER_JWT_SECRET: ${BROKER_JWT_SECRET:?Set a JWT secret}
   BROKER_MOCK_FAILURE_RATE: ${BROKER_MOCK_FAILURE_RATE:-0.2}

@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-VERSION = "0.6.0"
+VERSION = "0.7.0"
 
 
 class Settings(BaseSettings):
@@ -17,6 +17,7 @@ class Settings(BaseSettings):
         env_prefix="BROKER_", env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8", extra="ignore", hide_input_in_errors=True,
     )
+    rate_limit_storage_uri: SecretStr = SecretStr("memory://")
     jwt_secret: SecretStr = SecretStr("")  # Missing disables login; public simulation can run.
     algorithm: Literal["HS256"] = "HS256"
     access_token_expire_minutes: int = Field(default=30, ge=1, le=120)
@@ -28,6 +29,16 @@ class Settings(BaseSettings):
     auto_create_tables: bool = True  # SQLite compatibility only; PostgreSQL uses Alembic.
     allowed_hosts: str = "localhost,127.0.0.1,testserver"
     cors_origins: str = ""
+
+    @field_validator("rate_limit_storage_uri")
+    @classmethod
+    def rate_storage(cls, value):
+        text = value.get_secret_value()
+        url = urlsplit(text)
+        if text != "memory://" and (url.scheme not in {"redis", "rediss"} or not url.hostname
+                                   or url.query or url.fragment):
+            raise ValueError("Use memory://, redis:// or rediss:// storage")
+        return value
 
     @field_validator("jwt_secret")
     @classmethod

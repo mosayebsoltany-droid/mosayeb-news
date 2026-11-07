@@ -12,7 +12,10 @@ from app.core.logging import configure_logging
 from app.core.security import configure_security
 from app import models  # noqa: F401 — register models in Base.metadata
 from app.database import Base, SessionLocal, engine
-from app.routers import services, users
+from app.routers import analytics, services, users
+from app.core.rate_limit import limiter, rate_limit_handler, rate_storage_error_handler
+from limits.errors import StorageError
+from slowapi.errors import RateLimitExceeded
 from app.routers.mock_registry import mock_registry
 from app.schemas import HealthResponse
 from app.services import router as services_router
@@ -35,10 +38,14 @@ app = FastAPI(
 )
 
 configure_security(app)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+app.add_exception_handler(StorageError, rate_storage_error_handler)
 
 if get_settings().enable_demo:
     app.include_router(services_router)
 app.include_router(users.router)
+app.include_router(analytics.router)
 app.include_router(services.router)
 app.mount('/mock-registry', mock_registry)
 
@@ -65,6 +72,15 @@ def health():
         logging.getLogger("broker.errors").warning("database_readiness_failed")
         return JSONResponse(status_code=503, content={
             "status": "unhealthy", "database": "disconnected",
+            "mode": "simulation", "version": VERSION,
+        })
+    try:
+        rate_ready = limiter._storage.check()
+    except StorageError:
+        rate_ready = False
+    if not rate_ready:
+        return JSONResponse(status_code=503, content={
+            "status": "unhealthy", "database": "connected", "rate_limit": "unavailable",
             "mode": "simulation", "version": VERSION,
         })
     return {"status": "ok", "database": "connected", "mode": "simulation", "version": VERSION}
