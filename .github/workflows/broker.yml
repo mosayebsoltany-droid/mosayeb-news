@@ -23,7 +23,7 @@ jobs:
       - run: python -m pytest -q
       - name: Build and verify Docker container
         run: |
-          trap 'docker compose logs; docker compose -f compose.staging.yaml logs; docker compose down --volumes; docker compose -f compose.staging.yaml down --volumes' EXIT
+          trap 'docker compose logs; docker compose down --volumes' EXIT
           docker compose up --build --detach --wait --wait-timeout 120
           curl --fail --silent --show-error http://127.0.0.1:8000/health
           curl --fail --silent --show-error http://127.0.0.1:8000/docs >/dev/null
