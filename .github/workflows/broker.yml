@@ -50,6 +50,26 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:8001/health
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST http://127.0.0.1:8001/api/demo/requests)" = 404
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8001/services/track/example)" = 401
+      - name: Verify PostgreSQL orchestration and optional Redis
+        env:
+          BROKER_JWT_SECRET: ci-disposable-compose-signing-secret-000000
+          BROKER_POSTGRES_PASSWORD: ci_disposable_compose_password
+          BROKER_MOCK_FAILURE_RATE: "0"
+        run: |
+          trap 'docker compose -f compose.postgres.yaml --profile cache logs --tail 100; docker compose -f compose.postgres.yaml --profile cache down --volumes' EXIT
+          docker compose -f compose.postgres.yaml --profile cache up --build --detach --wait --wait-timeout 180
+          curl --fail --silent --show-error http://127.0.0.1:8002/ready
+          docker compose -f compose.postgres.yaml exec -T broker python -c "import os; assert os.getuid() == 10001"
+          docker compose -f compose.postgres.yaml exec -T redis redis-cli ping | grep PONG
+          docker compose -f compose.postgres.yaml exec -T broker python -m alembic check
+          docker compose -f compose.postgres.yaml exec -T broker python - < scripts/smoke_postgres.py
+          docker compose -f compose.postgres.yaml stop db
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8002/ready)" = 503
+          curl --fail --silent --show-error http://127.0.0.1:8002/live
+          docker compose -f compose.postgres.yaml start db
+          curl --fail --silent --show-error --retry 20 --retry-delay 1 --retry-all-errors http://127.0.0.1:8002/ready
+          docker compose -f compose.postgres.yaml logs --no-log-prefix broker > /tmp/broker-json.log
+          python -c 'import json; lines=open("/tmp/broker-json.log").readlines(); logs=[json.loads(s) for s in lines if s.startswith("{")]; assert any(s.get("message")=="request_completed" for s in logs)'
       - name: Archive the tested image
         run: docker save real-estate-broker:local | gzip > broker-image.tar.gz
       - uses: actions/upload-artifact@v4

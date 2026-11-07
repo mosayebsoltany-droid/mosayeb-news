@@ -1,3 +1,5 @@
+import logging
+from time import monotonic
 from uuid import uuid4
 from urllib.parse import urlsplit
 
@@ -21,8 +23,13 @@ class SecurityHeadersMiddleware:
         identifier = uuid4().hex
         scope.setdefault("state", {})["request_id"] = identifier
 
+        started = monotonic()
+        status = 500
+
         async def secure_send(message):
+            nonlocal status
             if message["type"] == "http.response.start":
+                status = message["status"]
                 headers = list(message.get("headers", []))
                 required = {**SAFE_HEADERS, "X-Request-ID": identifier}
                 replaced = {key.lower().encode("ascii") for key in required}
@@ -32,7 +39,15 @@ class SecurityHeadersMiddleware:
                 message = {**message, "headers": headers}
             await send(message)
 
-        await self.app(scope, receive, secure_send)
+        try:
+            await self.app(scope, receive, secure_send)
+        finally:
+            route = getattr(scope.get("route"), "path", "<unmatched>")
+            logging.getLogger("broker.access").info("request_completed", extra={
+                "request_id": identifier, "method": scope.get("method"),
+                "route": route, "status": status,
+                "duration_ms": round((monotonic() - started) * 1000, 2),
+            })
 
 
 def csv_setting(name: str, default: str = "") -> list[str]:

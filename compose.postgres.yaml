@@ -1,0 +1,81 @@
+name: broker-postgres
+x-broker-env: &broker-env
+  BROKER_DATABASE_URL: postgresql+psycopg://broker:${BROKER_POSTGRES_PASSWORD:?Set a URL-safe database password}@db:5432/broker
+  BROKER_JWT_SECRET: ${BROKER_JWT_SECRET:?Set a JWT secret}
+  BROKER_MOCK_FAILURE_RATE: ${BROKER_MOCK_FAILURE_RATE:-0.2}
+  BROKER_AUTO_CREATE_TABLES: "false"
+  BROKER_ENABLE_DEMO: "false"
+  BROKER_ALLOWED_HOSTS: ${BROKER_ALLOWED_HOSTS:-localhost,127.0.0.1}
+  BROKER_CORS_ORIGINS: ${BROKER_CORS_ORIGINS:-}
+  BROKER_MOCK_REGISTRY_URL: ${BROKER_MOCK_REGISTRY_URL:-http://mock-registry/submit}
+  BROKER_REGISTRY_TIMEOUT_SECONDS: ${BROKER_REGISTRY_TIMEOUT_SECONDS:-5}
+  BROKER_ACCESS_TOKEN_EXPIRE_MINUTES: ${BROKER_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+x-log: &bounded-log
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: broker
+      POSTGRES_PASSWORD: ${BROKER_POSTGRES_PASSWORD:?Set a URL-safe database password}
+      POSTGRES_DB: broker
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U broker -d broker"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging: *bounded-log
+  migrate:
+    build: .
+    image: real-estate-broker:postgres
+    environment: *broker-env
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging: *bounded-log
+  broker:
+    image: real-estate-broker:postgres
+    build: .
+    environment: *broker-env
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${BROKER_POSTGRES_PORT:-8002}:8000"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    logging: *bounded-log
+  redis:
+    image: redis:7-alpine
+    user: redis
+    profiles: [cache]
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    read_only: true
+    tmpfs: [/data, /tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging: *bounded-log
+    restart: unless-stopped
+volumes:
+  postgres-data:

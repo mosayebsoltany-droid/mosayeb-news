@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.config import VERSION, get_settings
 from sqlalchemy import text
 
+from app.core.logging import configure_logging
 from app.core.security import configure_security
 from app import models  # noqa: F401 — register models in Base.metadata
 from app.database import Base, SessionLocal, engine
@@ -19,6 +20,7 @@ from app.services import router as services_router
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    configure_logging()
     if engine.dialect.name == "sqlite" and get_settings().auto_create_tables:
         Base.metadata.create_all(bind=engine)
     yield
