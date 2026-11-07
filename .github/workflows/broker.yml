@@ -23,11 +23,20 @@ jobs:
       - run: python -m pytest -q
       - name: Build and verify Docker container
         run: |
-          trap 'docker compose logs; docker compose down --volumes' EXIT
+          trap 'docker compose logs; docker compose -f compose.staging.yaml logs; docker compose down --volumes; docker compose -f compose.staging.yaml down --volumes' EXIT
           docker compose up --build --detach --wait --wait-timeout 120
           curl --fail --silent --show-error http://127.0.0.1:8000/health
           curl --fail --silent --show-error http://127.0.0.1:8000/docs >/dev/null
           docker compose exec -T broker python -c "import sqlite3; db = sqlite3.connect('file:/data/broker.db?mode=ro', uri=True); assert {'users', 'audit_logs'} <= {r[0] for r in db.execute('SELECT name FROM sqlite_master')}"
+      - name: Verify isolated staging
+        env:
+          BROKER_JWT_SECRET: ci-only-staging-secret-for-isolated-container
+        run: |
+          trap 'docker compose -f compose.staging.yaml logs; docker compose -f compose.staging.yaml down --volumes' EXIT
+          docker compose -f compose.staging.yaml up --build --detach --wait --wait-timeout 120
+          curl --fail --silent --show-error http://127.0.0.1:8001/health
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST http://127.0.0.1:8001/api/demo/requests)" = 404
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8001/services/track/example)" = 401
       - name: Archive the tested image
         run: docker save real-estate-broker:local | gzip > broker-image.tar.gz
       - uses: actions/upload-artifact@v4

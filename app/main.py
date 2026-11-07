@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
+from os import getenv
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from sqlalchemy import text
 
+from app.core.security import configure_security
 from app import models  # noqa: F401 — register models in Base.metadata
 from app.database import Base, SessionLocal, engine
 from app.routers import services, users
@@ -21,13 +23,16 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Real Estate Broker System — Simulation",
-    description="Local simulation only; no connection to an official registry.",
-    version="0.3.0",
+    title="سامانه کارگزاری فنی و مهندسی ثبت اسناد — شبیه‌سازی",
+    description="ورود JWT، ثبت ادعا، درخواست نقشه، پیگیری و PDF آزمایشی. ارتباط شبیه‌سازی‌شده با Retry و Circuit Breaker.",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
-app.include_router(services_router)
+configure_security(app)
+
+if getenv("BROKER_ENABLE_DEMO", "true").lower() == "true":
+    app.include_router(services_router)
 app.include_router(users.router)
 app.include_router(services.router)
 app.mount('/mock-registry', mock_registry)

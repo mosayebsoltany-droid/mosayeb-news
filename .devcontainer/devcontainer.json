@@ -1,11 +1,13 @@
 {
   "name": "Real Estate Broker System",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
-  "postStartCommand": "docker compose up --build --detach --wait --wait-timeout 120",
-  "forwardPorts": [8000],
+  "postStartCommand": "BROKER_ALLOWED_HOSTS=\"localhost,127.0.0.1,$CODESPACE_NAME-8000.app.github.dev\" docker compose up --build --detach --wait --wait-timeout 120",
+  "forwardPorts": [
+    8000
+  ],
   "portsAttributes": {
     "8000": {
       "label": "Broker API",

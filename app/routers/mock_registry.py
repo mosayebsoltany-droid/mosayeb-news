@@ -2,10 +2,16 @@ from os import getenv
 from random import random
 
 from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
+from app.core.errors import validation_exception_handler, global_exception_handler
 
 from app.schemas import ClaimCreate
 
 mock_registry = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+
+mock_registry.add_exception_handler(RequestValidationError, validation_exception_handler)
+mock_registry.add_exception_handler(Exception, global_exception_handler)
 
 
 @mock_registry.post("/submit")

@@ -1,0 +1,20 @@
+name: broker-staging
+services:
+  broker:
+    build: .
+    image: real-estate-broker:staging
+    environment:
+      BROKER_DATABASE_URL: sqlite:////data/broker.db
+      BROKER_JWT_SECRET: ${BROKER_JWT_SECRET:?Set a staging JWT secret}
+      BROKER_ALLOWED_HOSTS: ${BROKER_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      BROKER_CORS_ORIGINS: ${BROKER_CORS_ORIGINS:-}
+      BROKER_ENABLE_DEMO: "false"
+      BROKER_MOCK_FAILURE_RATE: "0.2"
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - staging-data:/data
+    restart: unless-stopped
+
+volumes:
+  staging-data:

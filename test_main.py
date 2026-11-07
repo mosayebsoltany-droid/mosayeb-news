@@ -110,7 +110,7 @@ def test_mock_validation_does_not_attempt_submission(accounts):
         for path in ("/mock-registry/submit", "/services/claims"):
             response = client.post(path, json=invalid, headers=headers)
             assert response.status_code == 422
-            assert response.json()["detail"][0]["loc"] == ["body", "national_id"]
+            assert response.json()["errors"][0]["loc"] == ["body", "national_id"]
         random.assert_not_called()
 
 

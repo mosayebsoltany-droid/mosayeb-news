@@ -8,6 +8,10 @@ services:
     environment:
       BROKER_JWT_SECRET: ${BROKER_JWT_SECRET:-}
       BROKER_MOCK_FAILURE_RATE: ${BROKER_MOCK_FAILURE_RATE:-0.2}
+      BROKER_ALLOWED_HOSTS: ${BROKER_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      BROKER_CORS_ORIGINS: ${BROKER_CORS_ORIGINS:-}
+      BROKER_ENABLE_DEMO: ${BROKER_ENABLE_DEMO:-true}
+    restart: unless-stopped
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
