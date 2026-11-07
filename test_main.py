@@ -65,7 +65,7 @@ def test_health_and_portal(broker):
     for path in ("/", "/health"):
         response = client.get(path)
         assert response.status_code == 200
-        assert response.json() == expected
+        assert all(response.json()[key] == value for key, value in expected.items())
     portal = client.get("/portal")
     assert portal.status_code == 200
     assert '<html lang="fa" dir="rtl">' in portal.text

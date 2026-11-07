@@ -4,6 +4,7 @@ from getpass import getpass
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
+from app.config import get_settings
 from app.auth import passwords
 from app.database import Base, SessionLocal, engine
 from app.models import User
@@ -21,7 +22,8 @@ def main():
         data = UserCreate(username=args.username, password=password)
     except ValidationError:
         parser.exit(1, "Invalid username or password length\n")
-    Base.metadata.create_all(engine)
+    if engine.dialect.name == "sqlite" and get_settings().auto_create_tables:
+        Base.metadata.create_all(engine)
     with SessionLocal() as db:
         db.add(User(username=data.username, hashed_password=passwords.hash(data.password)))
         try:

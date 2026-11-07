@@ -1,4 +1,3 @@
-from os import getenv
 from uuid import uuid4
 from urllib.parse import urlsplit
 
@@ -6,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.config import get_settings
 from app.core.errors import (
     SAFE_HEADERS, global_exception_handler, validation_exception_handler,
 )
@@ -36,7 +36,7 @@ class SecurityHeadersMiddleware:
 
 
 def csv_setting(name: str, default: str = "") -> list[str]:
-    return [part.strip() for part in getenv(name, default).split(",") if part.strip()]
+    return [part.strip() for part in getattr(get_settings(), name.removeprefix("BROKER_").lower(), default).split(",") if part.strip()]
 
 
 def configure_security(app):

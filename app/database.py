@@ -1,21 +1,32 @@
 from collections.abc import Generator
-from os import getenv
-from pathlib import Path
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DATABASE_URL = getenv("BROKER_DATABASE_URL", f"sqlite:///{(PROJECT_ROOT / 'broker.db').as_posix()}")
-
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+from app.config import PROJECT_ROOT, get_settings
 
 
-@event.listens_for(engine, "connect")
 def enable_foreign_keys(dbapi_connection, _connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
+
+
+def build_engine(database_url: str):
+    backend = make_url(database_url).get_backend_name()
+    arguments = {"check_same_thread": False, "timeout": 3} if backend == "sqlite" else {
+        "connect_timeout": 3, "options": "-c statement_timeout=3000",
+    }
+    result = create_engine(database_url, connect_args=arguments, pool_pre_ping=True,
+                           pool_timeout=3)
+    if backend == "sqlite":
+        event.listen(result, "connect", enable_foreign_keys)
+    return result
+
+
+DATABASE_URL = get_settings().database_url.get_secret_value()
+engine = build_engine(DATABASE_URL)
 
 
 class Base(DeclarativeBase):

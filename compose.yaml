@@ -6,6 +6,11 @@ services:
       labels:
         org.opencontainers.image.source: https://github.com/mosayebsoltany-droid/mosayeb-news
     environment:
+      BROKER_ACCESS_TOKEN_EXPIRE_MINUTES: ${BROKER_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      BROKER_MOCK_REGISTRY_URL: ${BROKER_MOCK_REGISTRY_URL:-http://mock-registry/submit}
+      BROKER_REGISTRY_TIMEOUT_SECONDS: ${BROKER_REGISTRY_TIMEOUT_SECONDS:-5}
+      BROKER_AUTO_CREATE_TABLES: ${BROKER_AUTO_CREATE_TABLES:-true}
+      BROKER_DATABASE_URL: ${BROKER_DATABASE_URL:-sqlite:////data/broker.db}
       BROKER_JWT_SECRET: ${BROKER_JWT_SECRET:-}
       BROKER_MOCK_FAILURE_RATE: ${BROKER_MOCK_FAILURE_RATE:-0.2}
       BROKER_ALLOWED_HOSTS: ${BROKER_ALLOWED_HOSTS:-localhost,127.0.0.1}

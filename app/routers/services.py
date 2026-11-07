@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 from sqlalchemy import select
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
+from app.config import get_settings
 from app.auth import Database, get_current_user, log_action
 from app.certificates import certificate_pdf
 from app.models import DocumentRequest, User
@@ -30,11 +31,15 @@ async def call_mock_registry(claim: ClaimCreate) -> str:
     generation = registry_breaker.acquire()
     outcome = "cancelled"
     try:
-        # Use the same mock handler in-process, so container ports are irrelevant.
+        settings = get_settings()
+        endpoint = settings.mock_registry_url
+        transport = (httpx.ASGITransport(app=mock_registry)
+                     if endpoint == "http://mock-registry/submit" else None)
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=mock_registry), base_url="http://mock-registry"
+            transport=transport, timeout=settings.registry_timeout_seconds,
+            follow_redirects=False, trust_env=False,
         ) as client:
-            response = await client.post("/submit", json=claim.model_dump())
+            response = await client.post(endpoint, json=claim.model_dump())
             response.raise_for_status()
             message = response.json()["message"]
         outcome = "reachable"

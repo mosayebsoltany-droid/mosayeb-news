@@ -4,3 +4,7 @@
 !app/
 !app/**
 app/**/__pycache__/
+!alembic.ini
+!migrations/
+!migrations/**
+migrations/**/__pycache__/
