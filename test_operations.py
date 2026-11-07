@@ -123,6 +123,8 @@ with TestClient(app) as client:
     assert claim.status_code == 201, claim.text
     code = claim.json()["tracking_code"]
     assert client.get("/services/track/"+code, headers=headers).json()["status"] == "success"
+    from test_main import pay_mock
+    pay_mock(client, code, headers)
     assert client.get("/services/certificate/"+code, headers=headers).content.startswith(b"%PDF")
     with SessionLocal() as db:
         assert db.scalar(select(AuditLog.id).where(AuditLog.action == "CLAIM_SUCCESS"))

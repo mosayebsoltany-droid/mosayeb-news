@@ -44,6 +44,7 @@ class ClaimCreate(BaseModel):
 
 
 class RequestResponse(BaseModel):
+    payment_status: str
     id: int
     tracking_code: str
     status: str

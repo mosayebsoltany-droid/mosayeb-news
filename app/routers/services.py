@@ -79,7 +79,7 @@ async def check_identity(national_id: str) -> None:
 
 def output(record: DocumentRequest) -> RequestResponse:
     return RequestResponse(id=record.id, tracking_code=record.tracking_code,
-                           status=record.status, message=record.details or "در حال بررسی")
+                           status=record.status, payment_status=record.payment_status, message=record.details or "در حال بررسی")
 
 
 def create_record(db: Database, user: User, kind: str) -> DocumentRequest:
@@ -156,6 +156,8 @@ def download_claim_certificate(tracking_code: str, db: Database, user: CurrentUs
         raise HTTPException(404, "ادعایی با این کد رهگیری یافت نشد.")
     if claim.status != "success":
         raise HTTPException(409, "گواهی فقط برای ادعای موفق قابل دریافت است.")
+    if claim.payment_status != "paid":
+        raise HTTPException(402, "هزینهٔ شبیه‌سازی‌شده پرداخت نشده است؛ از /payments/request اقدام کنید.")
     pdf = certificate_pdf(claim.tracking_code, "SIMULATION", claim.created_at)
     log_action(db, user.id, "DOWNLOAD_CERTIFICATE", claim.tracking_code)
     db.commit()

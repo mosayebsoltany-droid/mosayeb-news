@@ -156,7 +156,7 @@ def test_legacy_sqlite_bootstrap_preserves_audit_and_upgrades(tmp_path):
     migrate_sqlite(engine)
     with engine.begin() as db:
         assert db.execute(text("SELECT details FROM audit_logs")).scalar_one() == "preserve"
-        assert db.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0003"
+        assert db.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0004"
         db.execute(text("INSERT INTO audit_logs (user_id,action,timestamp,details,ip_address) VALUES (NULL,'FAILED_LOGIN_ATTEMPT','2026-01-02','Credentials rejected','198.51.100.8')"))
     assert {"ip_address","request_id"} <= {c["name"] for c in inspect(engine).get_columns("audit_logs")}
     engine.dispose()

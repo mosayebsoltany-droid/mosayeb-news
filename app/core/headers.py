@@ -14,7 +14,7 @@ def response_headers(scope, identifier):
     headers = {**SAFE_HEADERS, "X-Request-ID": identifier}
     nonce = scope.get("state", {}).get("csp_nonce")
     path = scope.get("path", "")
-    if nonce and path in {"/portal", "/admin", "/docs", "/docs/oauth2-redirect"}:
+    if nonce and path in {"/portal", "/admin", "/payments", "/docs", "/docs/oauth2-redirect"}:
         docs = path.startswith("/docs")
         scripts = f"'self' 'nonce-{nonce}'" + (" https://cdn.jsdelivr.net" if docs else "")
         styles = ("'self' 'unsafe-inline' https://cdn.jsdelivr.net" if docs else f"'self' 'nonce-{nonce}'")

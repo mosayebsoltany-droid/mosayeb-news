@@ -33,6 +33,19 @@ def main():
         limited = client.post("/services/claims", json={"national_id": "0123456789", "claim_type": "demo"})
         assert limited.status_code == 429 and limited.headers.get("retry-after")
         assert client.get("/services/track/" + code).json()["status"] == "success"
+        assert client.get("/services/certificate/" + code).status_code == 402
+        payment = client.post("/payments/request", json={"tracking_code": code}).json()
+        authority = payment["authority"]
+        body = {"tracking_code": code, "authority": authority, "status": "OK"}
+        assert client.post("/payments/verify", json=body).status_code == 409
+        assert client.post("/payments/simulate", json={"authority": authority, "outcome": "OK"}).status_code == 200
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(lambda _: client.post("/payments/verify", json=body).status_code, range(2)))
+        assert outcomes == [200, 200], outcomes
+        with SessionLocal() as db:
+            audits = list(db.scalars(select(AuditLog.id).where(AuditLog.action == "PAYMENT_SUCCESS", AuditLog.details == code)))
+            assert len(audits) == 1
         assert client.get("/services/certificate/" + code).content.startswith(b"%PDF")
         admin_token = client.post("/auth/token", data={"username": name+"-admin", "password": password}).json()["access_token"]
         stats = client.get("/analytics/dashboard", headers={"Authorization": "Bearer "+admin_token})

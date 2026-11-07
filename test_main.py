@@ -59,6 +59,17 @@ def login(client, username):
     return {"Authorization": "Bearer " + response.json()["access_token"]}
 
 
+def pay_mock(client, code, headers):
+    assert client.get("/services/certificate/"+code, headers=headers).status_code == 402
+    payment = client.post("/payments/request", json={"tracking_code": code}, headers=headers)
+    assert payment.status_code == 200, payment.text
+    authority = payment.json()["authority"]
+    assert client.post("/payments/simulate", json={"authority": authority, "outcome": "OK"}, headers=headers).status_code == 200
+    result = client.post("/payments/verify", json={"tracking_code": code, "authority": authority, "status": "OK"}, headers=headers)
+    assert result.status_code == 200, result.text
+    return authority
+
+
 def test_health_and_portal(broker):
     client, sessions = broker
     expected = {"status": "ok", "mode": "simulation"}
@@ -129,13 +140,14 @@ def test_claim_retry_owner_tracking_and_pdf(accounts):
     pdf_url = "/services/certificate/" + claim.json()["tracking_code"]
     assert client.get(pdf_url).status_code == 401
     assert client.get(pdf_url, headers=bob).status_code == 404
+    pay_mock(client, claim.json()["tracking_code"], alice)
     pdf = client.get(pdf_url, headers=alice)
     assert pdf.status_code == 200, pdf.text
     assert pdf.headers["content-type"] == "application/pdf"
     assert pdf.headers["cache-control"] == "no-store"
     assert pdf.content.startswith(b"%PDF")
     with sessions() as db:
-        assert set(db.scalars(select(AuditLog.action))) == {"LOGIN", "CLAIM_SUCCESS", "DOWNLOAD_CERTIFICATE"}
+        assert set(db.scalars(select(AuditLog.action))) == {"LOGIN", "CLAIM_SUCCESS", "DOWNLOAD_CERTIFICATE", "PAYMENT_REQUESTED", "MOCK_BANK_RESULT", "PAYMENT_SUCCESS"}
 
 
 def test_circuit_breaker_opens_blocks_and_recovers(accounts):
@@ -202,8 +214,6 @@ def test_portal_demo_workflows_and_certificate_pdf(broker):
         assert client.get(url).json() == result
         pdf = client.get(f"{url}/certificate.pdf")
         if service == "certificate":
-            assert pdf.status_code == 200, pdf.text
-            assert pdf.headers["content-type"] == "application/pdf"
-            assert pdf.content.startswith(b"%PDF")
+            assert pdf.status_code == 402, pdf.text
         else:
             assert pdf.status_code == 409

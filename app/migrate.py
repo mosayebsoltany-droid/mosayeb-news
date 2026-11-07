@@ -28,7 +28,7 @@ def migrate_sqlite(engine):
                 raise RuntimeError("Custom SQLite schema requires migration review")
             adopted = None
             # Both prior create_all schemas and current fresh CLI-created schemas are known.
-            for revision in ("0002", "head"):
+            for revision in ("0002", "0003", "head"):
                 with TemporaryDirectory(prefix="broker-schema-") as directory:
                     reference = create_engine(f"sqlite:///{Path(directory) / 'reference.db'}")
                     try:

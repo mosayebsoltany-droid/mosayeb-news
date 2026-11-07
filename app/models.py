@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, String, Text, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -50,6 +50,8 @@ class DocumentRequest(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     request_type: Mapped[str] = mapped_column(String(12))
     status: Mapped[str] = mapped_column(String(12), default="pending")
+    payment_status: Mapped[str] = mapped_column(String(12), default="unpaid", server_default="unpaid")
+    __table_args__ = (CheckConstraint("payment_status IN ('unpaid', 'paid')", name="ck_document_payment_status"),)
     details: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
@@ -70,3 +72,23 @@ class NotificationEvent(Base):
     receipt: Mapped[str | None] = mapped_column(String(48))
     created_at: Mapped[datetime] = mapped_column(DateTime)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class PaymentTransaction(Base):
+    __tablename__ = "payment_transactions"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_payment_positive_amount"),
+        CheckConstraint("status IN ('pending', 'success', 'failed')", name="ck_payment_status"),
+        CheckConstraint("bank_status IN ('pending', 'paid', 'cancelled')", name="ck_payment_bank_status"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    request_id: Mapped[int] = mapped_column(ForeignKey("document_requests.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    amount: Mapped[int] = mapped_column()
+    authority: Mapped[str] = mapped_column(String(48), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(12), default="pending")
+    bank_status: Mapped[str] = mapped_column(String(12), default="pending")
+    receipt: Mapped[str | None] = mapped_column(String(48), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime)

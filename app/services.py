@@ -119,4 +119,4 @@ def download_demo_certificate(code: UUID, db: Database):
     record = lookup(db, code)
     if record.service != "certificate" or record.status != "completed" or not record.result:
         raise HTTPException(409, "A completed demo certificate is required")
-    return certificate_pdf(record.reference, record.result)
+    raise HTTPException(402, "گواهی عمومی دمو غیرفعال است؛ با حساب خود از /services/claims و /payments استفاده کنید.")

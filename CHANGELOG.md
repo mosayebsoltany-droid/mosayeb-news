@@ -1,3 +1,9 @@
+# 0.10.0 — Mock payments
+
+- Owner-scoped server-priced IRR transactions, explicit simulated bank decisions, expiry and idempotent atomic verification.
+- Payment-gated PDF, Persian payment UI, audit records and additive 0004 migration preserving existing data.
+- Callback forgery, ownership, duplicate authority, cancellation, expiry, rollback and migration tests; PostgreSQL smoke includes payment before PDF.
+
 # نسخهٔ ۰٫۹٫۰ — فاز ۱۲
 
 - پنج تلاش ورود در دقیقه؛ ثبت امن شکست/موفقیت با IP و request_id.

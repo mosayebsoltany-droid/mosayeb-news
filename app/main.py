@@ -15,7 +15,7 @@ from app.core.logging import configure_logging
 from app.core.security import configure_security
 from app import models  # noqa: F401 — register models in Base.metadata
 from app.database import Base, SessionLocal, engine
-from app.routers import admin, analytics, external_services, notifications, services, users
+from app.routers import admin, analytics, external_services, notifications, payments, services, users
 from app.worker import run_worker
 from app.core.rate_limit import limiter, rate_limit_handler, rate_storage_error_handler
 from limits.errors import StorageError
@@ -64,6 +64,7 @@ app.include_router(admin.router)
 app.include_router(external_services.router)
 app.include_router(notifications.router)
 app.include_router(services.router)
+app.include_router(payments.router)
 app.mount('/mock-registry', mock_registry)
 
 
@@ -106,6 +107,11 @@ def health():
 @app.get("/portal", response_class=FileResponse, include_in_schema=False)
 def portal(request: Request):
     return local_page("portal.html", request)
+
+
+@app.get("/payments", response_class=FileResponse, include_in_schema=False)
+def payments_ui(request: Request):
+    return local_page("payments.html", request)
 
 
 @app.get("/admin", response_class=FileResponse, include_in_schema=False)
