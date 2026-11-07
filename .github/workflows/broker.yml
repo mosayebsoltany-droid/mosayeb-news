@@ -59,7 +59,7 @@ jobs:
           trap 'docker compose -f compose.postgres.yaml --profile cache logs --tail 100; docker compose -f compose.postgres.yaml --profile cache down --volumes' EXIT
           docker compose -f compose.postgres.yaml --profile cache up --build --detach --wait --wait-timeout 180
           curl --fail --silent --show-error http://127.0.0.1:8002/ready
-          docker compose -f compose.postgres.yaml exec -T broker python -c "import os; assert os.getuid() == 10001"
+          docker compose -f compose.postgres.yaml exec -T broker python -c "import os,sys; assert os.getuid() == 10001; assert sys.prefix == '/opt/venv'; assert not os.path.exists('/wheels')"
           docker compose -f compose.postgres.yaml exec -T redis redis-cli ping | grep PONG
           docker compose -f compose.postgres.yaml exec -T broker python -m alembic check
           docker compose -f compose.postgres.yaml exec -T broker python - < scripts/smoke_postgres.py

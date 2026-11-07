@@ -1,20 +1,23 @@
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim AS base
+
+FROM base AS builder
 WORKDIR /build
 COPY requirements.txt .
-RUN python -m pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+RUN python -m pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt \
+    && python -m venv /opt/venv \
+    && /opt/venv/bin/python -m pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt
 
-FROM python:3.12-slim AS runtime
+FROM base AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
-    BROKER_DATABASE_URL=sqlite:////data/broker.db
+    BROKER_DATABASE_URL=sqlite:////data/broker.db \
+    PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --user-group --uid 10001 broker \
     && install -d -o broker -g broker /data
-COPY --from=builder /wheels /wheels
+COPY --from=builder /opt/venv /opt/venv
 COPY requirements.txt .
-RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
-    && rm -rf /wheels
 COPY app ./app
 COPY alembic.ini .
 COPY migrations ./migrations
