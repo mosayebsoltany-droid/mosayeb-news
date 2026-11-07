@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+import asyncio
 from pathlib import Path
 import logging
 
@@ -12,7 +13,8 @@ from app.core.logging import configure_logging
 from app.core.security import configure_security
 from app import models  # noqa: F401 — register models in Base.metadata
 from app.database import Base, SessionLocal, engine
-from app.routers import analytics, services, users
+from app.routers import admin, analytics, external_services, notifications, services, users
+from app.worker import run_worker
 from app.core.rate_limit import limiter, rate_limit_handler, rate_storage_error_handler
 from limits.errors import StorageError
 from slowapi.errors import RateLimitExceeded
@@ -26,8 +28,16 @@ async def lifespan(_app: FastAPI):
     configure_logging()
     if engine.dialect.name == "sqlite" and get_settings().auto_create_tables:
         Base.metadata.create_all(bind=engine)
-    yield
-    engine.dispose()
+    worker = (asyncio.create_task(run_worker(SessionLocal))
+              if get_settings().notification_worker_enabled else None)
+    try:
+        yield
+    finally:
+        if worker is not None:
+            worker.cancel()
+            with suppress(asyncio.CancelledError):
+                await worker
+        engine.dispose()
 
 
 app = FastAPI(
@@ -46,6 +56,9 @@ if get_settings().enable_demo:
     app.include_router(services_router)
 app.include_router(users.router)
 app.include_router(analytics.router)
+app.include_router(admin.router)
+app.include_router(external_services.router)
+app.include_router(notifications.router)
 app.include_router(services.router)
 app.mount('/mock-registry', mock_registry)
 
@@ -89,3 +102,8 @@ def health():
 @app.get("/portal", response_class=FileResponse, include_in_schema=False)
 def portal():
     return FileResponse(Path(__file__).with_name("portal.html"), media_type="text/html")
+
+
+@app.get("/admin", response_class=FileResponse, include_in_schema=False)
+def admin_ui():
+    return FileResponse(Path(__file__).with_name("admin.html"), media_type="text/html")

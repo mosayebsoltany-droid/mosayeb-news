@@ -1,5 +1,6 @@
 name: broker-postgres
 x-broker-env: &broker-env
+  BROKER_NOTIFICATION_WORKER_ENABLED: "false"
   BROKER_RATE_LIMIT_STORAGE_URI: ${BROKER_RATE_LIMIT_STORAGE_URI:-memory://}
   BROKER_DATABASE_URL: postgresql+psycopg://broker:${BROKER_POSTGRES_PASSWORD:?Set a URL-safe database password}@db:5432/broker
   BROKER_JWT_SECRET: ${BROKER_JWT_SECRET:?Set a JWT secret}
@@ -60,6 +61,23 @@ services:
     tmpfs: [/tmp]
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    logging: *bounded-log
+  worker:
+    image: real-estate-broker:postgres
+    environment: *broker-env
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      disable: true
     restart: unless-stopped
     logging: *bounded-log
   redis:

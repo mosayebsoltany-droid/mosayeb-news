@@ -1,5 +1,6 @@
 """Run inside the isolated Compose broker; all credentials and data are test-only."""
 from uuid import uuid4
+import time
 
 import httpx
 from sqlalchemy import select
@@ -25,6 +26,7 @@ def main():
         claim = client.post("/services/claims", json={"national_id": "0123456789", "claim_type": "demo"})
         assert claim.status_code == 201, claim.status_code
         code = claim.json()["tracking_code"]
+        event_id = claim.headers["x-simulated-notification-id"]
         # One initial claim plus four more exhaust this account's quota in shared Redis.
         for _ in range(4):
             assert client.post("/services/claims", json={"national_id": "0123456789", "claim_type": "demo"}).status_code == 201
@@ -35,6 +37,15 @@ def main():
         admin_token = client.post("/auth/token", data={"username": name+"-admin", "password": password}).json()["access_token"]
         stats = client.get("/analytics/dashboard", headers={"Authorization": "Bearer "+admin_token})
         assert stats.status_code == 200 and stats.json()["successful_requests"] >= 5
+        chart = client.get("/admin/analytics/chart-data", headers={"Authorization": "Bearer "+admin_token})
+        assert chart.status_code == 200 and len(chart.json()["labels"]) == 7
+        assert client.get("/admin").status_code == 200
+        for _ in range(30):
+            event = client.get("/notifications/"+event_id).json()
+            if event["status"] == "completed":
+                break
+            time.sleep(0.2)
+        assert event["status"] == "completed" and event["receipt"].startswith("SIM-SMS-")
     with SessionLocal() as db:
         assert db.scalar(select(AuditLog.id).where(AuditLog.action == "CLAIM_SUCCESS", AuditLog.details == code))
     print("PostgreSQL Compose: login, claim, tracking, PDF, audit and account rate limit passed")

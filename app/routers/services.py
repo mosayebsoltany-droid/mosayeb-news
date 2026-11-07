@@ -9,6 +9,7 @@ from app.core.rate_limit import limiter
 from sqlalchemy import select
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
+from app.worker import queue_claim_notification
 from app.config import get_settings
 from app.auth import Database, get_current_user, log_action
 from app.certificates import certificate_pdf
@@ -110,6 +111,9 @@ async def register_claim(request: Request, claim: ClaimCreate, db: Database, use
         record.details = ("سامانهٔ شبیه‌سازی در دسترس نیست." if unavailable
                           else "سامانهٔ شبیه‌سازی درخواست را نپذیرفت.")
         response.status_code = 503 if unavailable else 422
+    if record.status == "success":
+        event = queue_claim_notification(db, record)
+        response.headers["X-Simulated-Notification-ID"] = event.id
     log_action(db, user.id, f"CLAIM_{record.status.upper()}", record.tracking_code)
     db.commit()
     return output(record)

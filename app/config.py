@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-VERSION = "0.7.0"
+VERSION = "0.8.0"
 
 
 class Settings(BaseSettings):
@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     mock_registry_url: str = "http://mock-registry/submit"
     mock_failure_rate: float = Field(default=0.2, ge=0, le=1)
     registry_timeout_seconds: float = Field(default=5, gt=0, le=30)
+    notification_worker_enabled: bool = True
+    notification_poll_seconds: float = Field(default=1, ge=0.1, le=10)
     enable_demo: bool = True
     auto_create_tables: bool = True  # SQLite compatibility only; PostgreSQL uses Alembic.
     allowed_hosts: str = "localhost,127.0.0.1,testserver"
